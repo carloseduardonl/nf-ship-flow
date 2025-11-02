@@ -8,6 +8,7 @@ export interface Delivery {
   nf_series: string;
   nf_date: string;
   nf_value: number;
+  nf_file_url: string | null;
   delivery_address: string;
   delivery_city: string;
   delivery_state: string;
@@ -22,13 +23,16 @@ export interface Delivery {
   seller_company_id: string;
   buyer_company_id: string;
   notes: string | null;
+  cancellation_reason: string | null;
   seller_company?: {
     id: string;
     name: string;
+    address?: string;
   };
   buyer_company?: {
     id: string;
     name: string;
+    address?: string;
   };
   created_at: string;
 }
