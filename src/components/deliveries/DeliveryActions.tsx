@@ -25,6 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface DeliveryActionsProps {
   delivery: any;
@@ -38,12 +39,15 @@ export const DeliveryActions = ({
   const { profile } = useAuth();
   const [showSuggestModal, setShowSuggestModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestedDate, setSuggestedDate] = useState<Date>();
   const [suggestedTimeStart, setSuggestedTimeStart] = useState("");
   const [suggestedTimeEnd, setSuggestedTimeEnd] = useState("");
   const [suggestionReason, setSuggestionReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
+  const [receiptNotes, setReceiptNotes] = useState("");
+  const [allOk, setAllOk] = useState(false);
   const [validationError, setValidationError] = useState("");
 
   const isBuyer = profile?.company_id === delivery.buyer_company_id;
@@ -74,6 +78,32 @@ export const DeliveryActions = ({
         description: `${profile?.full_name} confirmou a data de entrega`,
         user_id: profile?.id,
       });
+
+      // Criar notificações para ambas as partes
+      const otherCompanyId =
+        isBuyer ? delivery.seller_company_id : delivery.buyer_company_id;
+
+      const { data: allUsers } = await supabase
+        .from("users")
+        .select("id")
+        .in("company_id", [delivery.seller_company_id, delivery.buyer_company_id]);
+
+      if (allUsers && allUsers.length > 0) {
+        const confirmDate = format(
+          new Date(delivery.proposed_date),
+          "dd/MM/yyyy",
+          { locale: ptBR }
+        );
+        const notifications = allUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "DELIVERY_CONFIRMED",
+          title: "Entrega confirmada!",
+          message: `Entrega confirmada para ${confirmDate} ${delivery.proposed_time_start.slice(0, 5)}-${delivery.proposed_time_end.slice(0, 5)}`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
 
       toast({ title: "Data confirmada com sucesso!" });
       onUpdate();
@@ -294,6 +324,24 @@ export const DeliveryActions = ({
         user_id: profile?.id,
       });
 
+      // Notificar comprador
+      const { data: buyerUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("company_id", delivery.buyer_company_id);
+
+      if (buyerUsers && buyerUsers.length > 0) {
+        const notifications = buyerUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "IN_TRANSIT",
+          title: "Entrega a caminho!",
+          message: `A entrega NF ${delivery.nf_number} está em trânsito`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+
       toast({ title: "Entrega marcada como em trânsito" });
       onUpdate();
     } catch (error) {
@@ -314,25 +362,54 @@ export const DeliveryActions = ({
         .from("deliveries")
         .update({
           status: "ENTREGUE",
+          ball_with: null,
           completed_at: new Date().toISOString(),
         })
         .eq("id", delivery.id);
 
       if (error) throw error;
 
+      const description = receiptNotes
+        ? `${profile?.full_name} confirmou o recebimento. Obs: ${receiptNotes}`
+        : `${profile?.full_name} confirmou o recebimento`;
+
       await supabase.from("delivery_timeline").insert({
         delivery_id: delivery.id,
         action: "DELIVERED",
-        description: `${profile?.full_name} confirmou o recebimento`,
+        description,
         user_id: profile?.id,
       });
 
-      toast({ title: "Recebimento confirmado!" });
+      // Notificar vendedor
+      const { data: sellerUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("company_id", delivery.seller_company_id);
+
+      if (sellerUsers && sellerUsers.length > 0) {
+        const notifications = sellerUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "DELIVERED",
+          title: "Entrega concluída!",
+          message: `${profile?.full_name} confirmou o recebimento da NF ${delivery.nf_number}`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+
+      toast({
+        title: "Entrega concluída! 🎉",
+        description: "O vendedor foi notificado sobre o recebimento",
+      });
+      setShowReceiveModal(false);
+      setReceiptNotes("");
+      setAllOk(false);
       onUpdate();
     } catch (error) {
       console.error("Error confirming delivery:", error);
       toast({
-        title: "Erro",
+        title: "Erro ao confirmar recebimento",
         variant: "destructive",
       });
     } finally {
@@ -561,21 +638,87 @@ export const DeliveryActions = ({
 
   if (
     delivery.status === "CONFIRMADA" &&
-    isSeller &&
-    delivery.confirmed_date === new Date().toISOString().split("T")[0]
+    isSeller
   ) {
-    return (
-      <Button onClick={markInTransit} disabled={loading}>
-        📦 Marcar como Em Trânsito
-      </Button>
-    );
+    // Permitir marcar como em trânsito se a data confirmada é hoje ou passou
+    const confirmedDate = new Date(delivery.confirmed_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    confirmedDate.setHours(0, 0, 0, 0);
+
+    if (confirmedDate <= today) {
+      return (
+        <Button onClick={markInTransit} disabled={loading}>
+          📦 Marcar como Em Trânsito
+        </Button>
+      );
+    }
   }
 
   if (delivery.status === "EM_TRANSITO" && isBuyer) {
     return (
-      <Button onClick={confirmReceived} disabled={loading}>
-        ✔️ Confirmar Recebimento
-      </Button>
+      <>
+        <Button onClick={() => setShowReceiveModal(true)} disabled={loading}>
+          ✔️ Confirmar Recebimento
+        </Button>
+
+        <Dialog open={showReceiveModal} onOpenChange={setShowReceiveModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Recebimento</DialogTitle>
+              <DialogDescription>
+                A entrega foi recebida conforme esperado?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="allOk"
+                  checked={allOk}
+                  onCheckedChange={(checked) => setAllOk(checked as boolean)}
+                />
+                <Label
+                  htmlFor="allOk"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Tudo OK, sem problemas
+                </Label>
+              </div>
+              <div>
+                <Label>Observações</Label>
+                <Textarea
+                  value={receiptNotes}
+                  onChange={(e) => setReceiptNotes(e.target.value)}
+                  placeholder="Adicione alguma observação sobre o recebimento (opcional)..."
+                  rows={3}
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {receiptNotes.length}/500 caracteres
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowReceiveModal(false);
+                  setReceiptNotes("");
+                  setAllOk(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={confirmReceived}
+                disabled={loading || !allOk}
+              >
+                {loading ? "Confirmando..." : "Confirmar Recebimento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
