@@ -1,16 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Loader2, ChevronsDown } from "lucide-react";
 import { DeliverySection } from "@/components/deliveries/DeliverySection";
 import { useDeliveries } from "@/hooks/useDeliveries";
+import { AdvancedFilters, DeliveryFilters } from "@/components/deliveries/AdvancedFilters";
+import { exportDeliveriesToCsv } from "@/lib/exportCsv";
+import { toast } from "sonner";
 
 const MyDeliveries = () => {
   const navigate = useNavigate();
@@ -18,6 +13,9 @@ const MyDeliveries = () => {
     loading,
     filters,
     setFilters,
+    allDeliveries,
+    hasMore,
+    loadMore,
     yourTurnDeliveries,
     confirmedDeliveries,
     inTransitDeliveries,
@@ -26,6 +24,20 @@ const MyDeliveries = () => {
     cancelledDeliveries,
     allCancelledDeliveries,
   } = useDeliveries();
+
+  const handleFiltersChange = (newFilters: DeliveryFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleExport = () => {
+    try {
+      exportDeliveriesToCsv(allDeliveries);
+      toast.success("CSV exportado com sucesso!");
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      toast.error("Erro ao exportar CSV");
+    }
+  };
 
   if (loading) {
     return (
@@ -45,31 +57,12 @@ const MyDeliveries = () => {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por NF..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="pl-9"
-          />
-        </div>
-
-        <Select
-          value={filters.period}
-          onValueChange={(value) => setFilters({ ...filters, period: value })}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os períodos</SelectItem>
-            <SelectItem value="week">Última semana</SelectItem>
-            <SelectItem value="month">Último mês</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <AdvancedFilters
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        onExport={handleExport}
+        totalResults={allDeliveries.length}
+      />
 
       <div className="space-y-4">
         <DeliverySection
@@ -117,6 +110,15 @@ const MyDeliveries = () => {
           showViewAll={true}
         />
       </div>
+
+      {hasMore && !loading && (
+        <div className="flex justify-center pt-4">
+          <Button variant="outline" onClick={loadMore}>
+            <ChevronsDown className="mr-2 h-4 w-4" />
+            Carregar Mais
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

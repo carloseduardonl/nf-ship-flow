@@ -37,20 +37,41 @@ export interface Delivery {
   created_at: string;
 }
 
-export const useDeliveries = () => {
+export interface DeliveryFilters {
+  search: string;
+  status: string;
+  companyId: string;
+  dateFrom: Date | undefined;
+  dateTo: Date | undefined;
+}
+
+export const useDeliveries = (customFilters?: DeliveryFilters) => {
   const { profile } = useAuth();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [allDeliveries, setAllDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    search: "",
-    companyId: "",
-    period: "all",
-  });
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const ITEMS_PER_PAGE = 50;
 
-  const fetchDeliveries = async () => {
+  const [filters, setFilters] = useState<DeliveryFilters>(
+    customFilters || {
+      search: "",
+      status: "all",
+      companyId: "",
+      dateFrom: undefined,
+      dateTo: undefined,
+    }
+  );
+
+  const fetchDeliveries = async (loadMore = false) => {
     if (!profile?.company_id) return;
 
-    setLoading(true);
+    if (!loadMore) {
+      setLoading(true);
+      setPage(0);
+    }
+
     try {
       let query = supabase
         .from("deliveries")
@@ -59,43 +80,71 @@ export const useDeliveries = () => {
           *,
           seller_company:companies!seller_company_id(id, name),
           buyer_company:companies!buyer_company_id(id, name)
-        `
+        `,
+          { count: "exact" }
         )
         .or(
           `seller_company_id.eq.${profile.company_id},buyer_company_id.eq.${profile.company_id}`
         );
 
-      // Apply filters
+      // Apply search filter
       if (filters.search) {
-        query = query.ilike("nf_number", `%${filters.search}%`);
+        query = query.or(
+          `nf_number.ilike.%${filters.search}%,delivery_address.ilike.%${filters.search}%`
+        );
       }
 
+      // Apply status filter
+      if (filters.status && filters.status !== "all") {
+        if (filters.status === "your-turn") {
+          const ballWith =
+            profile?.company?.type === "VENDEDOR" ? "VENDEDOR" : "COMPRADOR";
+          query = query.eq("ball_with", ballWith);
+        } else {
+          query = query.eq("status", filters.status);
+        }
+      }
+
+      // Apply company filter
       if (filters.companyId) {
         query = query.or(
           `seller_company_id.eq.${filters.companyId},buyer_company_id.eq.${filters.companyId}`
         );
       }
 
-      if (filters.period !== "all") {
-        const now = new Date();
-        let startDate = new Date();
-
-        if (filters.period === "week") {
-          startDate.setDate(now.getDate() - 7);
-        } else if (filters.period === "month") {
-          startDate.setMonth(now.getMonth() - 1);
-        }
-
-        query = query.gte("created_at", startDate.toISOString());
+      // Apply date range filter
+      if (filters.dateFrom) {
+        query = query.gte("created_at", filters.dateFrom.toISOString());
+      }
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        query = query.lte("created_at", endOfDay.toISOString());
       }
 
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
+      // Pagination
+      const from = loadMore ? (page + 1) * ITEMS_PER_PAGE : 0;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
-      setDeliveries(data as Delivery[]);
+      const newDeliveries = data as Delivery[];
+
+      if (loadMore) {
+        setDeliveries((prev) => [...prev, ...newDeliveries]);
+        setPage((p) => p + 1);
+      } else {
+        setDeliveries(newDeliveries);
+        setAllDeliveries(newDeliveries);
+      }
+
+      setHasMore(
+        count ? (loadMore ? page + 1 : 0) * ITEMS_PER_PAGE + newDeliveries.length < count : false
+      );
     } catch (error) {
       console.error("Error fetching deliveries:", error);
     } finally {
@@ -160,9 +209,12 @@ export const useDeliveries = () => {
 
   return {
     deliveries,
+    allDeliveries,
     loading,
     filters,
     setFilters,
+    hasMore,
+    loadMore: () => fetchDeliveries(true),
     yourTurnDeliveries,
     confirmedDeliveries,
     inTransitDeliveries,
