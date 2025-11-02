@@ -20,6 +20,7 @@ import { formatCurrency, parseCurrency } from "@/lib/currency";
 import { FileUpload } from "@/components/deliveries/FileUpload";
 import { FormStepper } from "@/components/deliveries/FormStepper";
 import { useDeliveryForm, DeliveryFormProvider } from "@/contexts/DeliveryFormContext";
+import { Step2SelectBuyer } from "@/components/deliveries/Step2SelectBuyer";
 import { toast } from "sonner";
 
 const step1Schema = z.object({
@@ -78,20 +79,30 @@ function NewDeliveryContent() {
     });
     toast.success("Dados da NF salvos!");
     setCurrentStep(2);
-    // TODO: Navigate to step 2 when implemented
+  };
+
+  const handleStep2Next = () => {
+    if (!formData.buyerCompanyId) {
+      toast.error("Selecione uma empresa compradora");
+      return;
+    }
+    toast.success("Comprador selecionado!");
+    setCurrentStep(3);
+    // TODO: Navigate to step 3 when implemented
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <FormStepper currentStep={currentStep} totalSteps={3} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Nova Entrega - Passo 1 de 3</CardTitle>
-          <CardDescription>Dados da Nota Fiscal</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {currentStep === 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Nova Entrega - Passo 1 de 3</CardTitle>
+            <CardDescription>Dados da Nota Fiscal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="nfNumber">
@@ -204,6 +215,16 @@ function NewDeliveryContent() {
           </form>
         </CardContent>
       </Card>
+      )}
+
+      {currentStep === 2 && (
+        <Step2SelectBuyer
+          selectedBuyerId={formData.buyerCompanyId}
+          onSelectBuyer={(buyerId) => updateFormData({ buyerCompanyId: buyerId })}
+          onNext={handleStep2Next}
+          onBack={() => setCurrentStep(1)}
+        />
+      )}
     </div>
   );
 }
