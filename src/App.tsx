@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import MyDeliveries from "./pages/deliveries/MyDeliveries";
 import NewDelivery from "./pages/deliveries/NewDelivery";
+import DeliveryDetail from "./pages/deliveries/DeliveryDetail";
 import YourTurn from "./pages/deliveries/YourTurn";
 import Confirmed from "./pages/deliveries/Confirmed";
 import InTransit from "./pages/deliveries/InTransit";
@@ -35,6 +36,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<MyDeliveries />} />
             <Route path="/entregas/nova" element={<NewDelivery />} />
+            <Route path="/entregas/:id" element={<DeliveryDetail />} />
             <Route path="/entregas/sua-vez" element={<YourTurn />} />
             <Route path="/entregas/confirmadas" element={<Confirmed />} />
             <Route path="/entregas/em-transito" element={<InTransit />} />

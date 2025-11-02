@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +22,11 @@ import { FileUpload } from "@/components/deliveries/FileUpload";
 import { FormStepper } from "@/components/deliveries/FormStepper";
 import { useDeliveryForm, DeliveryFormProvider } from "@/contexts/DeliveryFormContext";
 import { Step2SelectBuyer } from "@/components/deliveries/Step2SelectBuyer";
+import { Step3DeliveryDetails } from "@/components/deliveries/Step3DeliveryDetails";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { unmask } from "@/lib/masks";
 
 const step1Schema = z.object({
   nfNumber: z.string().min(1, "Número da NF é obrigatório"),
@@ -39,7 +44,20 @@ type Step1FormData = z.infer<typeof step1Schema>;
 
 function NewDeliveryContent() {
   const navigate = useNavigate();
-  const { formData, updateFormData, currentStep, setCurrentStep } = useDeliveryForm();
+  const { profile } = useAuth();
+  const { formData, updateFormData, currentStep, setCurrentStep, resetForm } = useDeliveryForm();
+  const [buyerCompany, setBuyerCompany] = useState<any>(null);
+
+  useEffect(() => {
+    if (formData.buyerCompanyId) {
+      supabase
+        .from("companies")
+        .select("*")
+        .eq("id", formData.buyerCompanyId)
+        .single()
+        .then(({ data }) => setBuyerCompany(data));
+    }
+  }, [formData.buyerCompanyId]);
 
   const {
     register,
@@ -88,7 +106,84 @@ function NewDeliveryContent() {
     }
     toast.success("Comprador selecionado!");
     setCurrentStep(3);
-    // TODO: Navigate to step 3 when implemented
+  };
+
+  const handleStep3Submit = async (data: any) => {
+    if (!profile?.company_id || !profile.id) {
+      toast.error("Erro: usuário não autenticado");
+      return;
+    }
+
+    try {
+      // 1. Create delivery
+      const deliveryAddress = `${data.street}, ${data.number}${
+        data.complement ? `, ${data.complement}` : ""
+      }, ${data.neighborhood}, ${data.city} - ${data.state}`;
+
+      const { data: delivery, error: deliveryError } = await supabase
+        .from("deliveries")
+        .insert({
+          seller_company_id: profile.company_id,
+          buyer_company_id: formData.buyerCompanyId,
+          created_by_user_id: profile.id,
+          nf_number: formData.nfNumber,
+          nf_series: formData.nfSeries || null,
+          nf_date: format(formData.nfDate!, "yyyy-MM-dd"),
+          nf_value: formData.nfValue,
+          nf_file_url: formData.nfFileUrl,
+          delivery_address: deliveryAddress,
+          delivery_city: data.city,
+          delivery_state: data.state,
+          delivery_postal_code: unmask(data.postalCode),
+          proposed_date: format(data.proposedDate, "yyyy-MM-dd"),
+          proposed_time_start: data.proposedTimeStart,
+          proposed_time_end: data.proposedTimeEnd,
+          notes: data.notes || null,
+          status: "AGUARDANDO_COMPRADOR",
+          ball_with: "COMPRADOR",
+        })
+        .select()
+        .single();
+
+      if (deliveryError) throw deliveryError;
+
+      // 2. Create timeline entry
+      const { error: timelineError } = await supabase
+        .from("delivery_timeline")
+        .insert({
+          delivery_id: delivery.id,
+          user_id: profile.id,
+          action: "CREATED",
+          description: `${profile.full_name} criou a entrega`,
+        });
+
+      if (timelineError) throw timelineError;
+
+      // 3. Get buyer company users and create notifications
+      const { data: buyerUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("company_id", formData.buyerCompanyId);
+
+      if (buyerUsers && buyerUsers.length > 0) {
+        const notifications = buyerUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "BALL_WITH_YOU",
+          title: "Nova entrega para confirmar",
+          message: `NF ${formData.nfNumber} aguarda sua confirmação`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+
+      toast.success("Proposta de entrega enviada com sucesso!");
+      resetForm();
+      navigate(`/entregas/${delivery.id}`);
+    } catch (error: any) {
+      console.error("Error creating delivery:", error);
+      toast.error(error.message || "Erro ao criar entrega");
+    }
   };
 
   return (
@@ -223,6 +318,14 @@ function NewDeliveryContent() {
           onSelectBuyer={(buyerId) => updateFormData({ buyerCompanyId: buyerId })}
           onNext={handleStep2Next}
           onBack={() => setCurrentStep(1)}
+        />
+      )}
+
+      {currentStep === 3 && (
+        <Step3DeliveryDetails
+          buyerCompanyAddress={buyerCompany?.address}
+          onSubmit={handleStep3Submit}
+          onBack={() => setCurrentStep(2)}
         />
       )}
     </div>

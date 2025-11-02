@@ -21,6 +21,7 @@ export interface Delivery {
   ball_with: string | null;
   seller_company_id: string;
   buyer_company_id: string;
+  notes: string | null;
   seller_company?: {
     id: string;
     name: string;
