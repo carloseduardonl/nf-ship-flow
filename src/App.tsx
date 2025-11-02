@@ -19,39 +19,48 @@ import Team from "./pages/Team";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          
-          {/* Protected Routes */}
-          <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<MyDeliveries />} />
-            <Route path="/entregas/nova" element={<NewDelivery />} />
-            <Route path="/entregas/:id" element={<DeliveryDetail />} />
-            <Route path="/entregas/sua-vez" element={<YourTurn />} />
-            <Route path="/entregas/confirmadas" element={<Confirmed />} />
-            <Route path="/entregas/em-transito" element={<InTransit />} />
-            <Route path="/entregas/concluidas" element={<Completed />} />
-            <Route path="/parceiros" element={<Partners />} />
-            <Route path="/equipe" element={<Team />} />
-            <Route path="/configuracoes" element={<Settings />} />
-          </Route>
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            
+            {/* Protected Routes */}
+            <Route element={<AppLayout />}>
+              <Route path="/dashboard" element={<MyDeliveries />} />
+              <Route path="/entregas/nova" element={<NewDelivery />} />
+              <Route path="/entregas/:id" element={<DeliveryDetail />} />
+              <Route path="/entregas/sua-vez" element={<YourTurn />} />
+              <Route path="/entregas/confirmadas" element={<Confirmed />} />
+              <Route path="/entregas/em-transito" element={<InTransit />} />
+              <Route path="/entregas/concluidas" element={<Completed />} />
+              <Route path="/parceiros" element={<Partners />} />
+              <Route path="/equipe" element={<Team />} />
+              <Route path="/configuracoes" element={<Settings />} />
+            </Route>
 
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
