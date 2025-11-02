@@ -15,7 +15,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import { ptBR } from "date-fns/locale";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface DeliveryActionsProps {
   delivery: any;
@@ -33,7 +42,9 @@ export const DeliveryActions = ({
   const [suggestedDate, setSuggestedDate] = useState<Date>();
   const [suggestedTimeStart, setSuggestedTimeStart] = useState("");
   const [suggestedTimeEnd, setSuggestedTimeEnd] = useState("");
+  const [suggestionReason, setSuggestionReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
+  const [validationError, setValidationError] = useState("");
 
   const isBuyer = profile?.company_id === delivery.buyer_company_id;
   const isSeller = profile?.company_id === delivery.seller_company_id;
@@ -78,40 +89,108 @@ export const DeliveryActions = ({
   };
 
   const suggestNewDate = async () => {
+    // Validações
     if (!suggestedDate || !suggestedTimeStart || !suggestedTimeEnd) {
-      toast({
-        title: "Preencha todos os campos",
-        variant: "destructive",
-      });
+      setValidationError("Preencha todos os campos obrigatórios");
       return;
     }
 
+    // Validar se data não é passada
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (suggestedDate < today) {
+      setValidationError("A data não pode ser no passado");
+      return;
+    }
+
+    // Validar horário
+    const [startHour, startMin] = suggestedTimeStart.split(":").map(Number);
+    const [endHour, endMin] = suggestedTimeEnd.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    if (endMinutes <= startMinutes) {
+      setValidationError("Horário de fim deve ser depois do início");
+      return;
+    }
+
+    if (endMinutes - startMinutes < 60) {
+      setValidationError("Diferença mínima de 1 hora entre os horários");
+      return;
+    }
+
+    setValidationError("");
     setLoading(true);
     try {
       const newBallWith = isBuyer ? "VENDEDOR" : "COMPRADOR";
+      const newStatus = isBuyer ? "AGUARDANDO_VENDEDOR" : "AGUARDANDO_COMPRADOR";
+
+      // Dados antigos para o timeline
+      const oldData = {
+        proposed_date: delivery.proposed_date,
+        proposed_time_start: delivery.proposed_time_start,
+        proposed_time_end: delivery.proposed_time_end,
+      };
+
+      const newData = {
+        proposed_date: suggestedDate.toISOString().split("T")[0],
+        proposed_time_start: suggestedTimeStart,
+        proposed_time_end: suggestedTimeEnd,
+      };
 
       const { error } = await supabase
         .from("deliveries")
         .update({
-          status: isBuyer ? "AGUARDANDO_VENDEDOR" : "AGUARDANDO_COMPRADOR",
+          status: newStatus,
           ball_with: newBallWith,
-          proposed_date: suggestedDate.toISOString().split("T")[0],
-          proposed_time_start: suggestedTimeStart,
-          proposed_time_end: suggestedTimeEnd,
+          ...newData,
         })
         .eq("id", delivery.id);
 
       if (error) throw error;
 
+      // Criar entrada no timeline
+      const formattedDate = format(suggestedDate, "dd/MM/yyyy", { locale: ptBR });
+      const description = suggestionReason
+        ? `${profile?.full_name} sugeriu nova data: ${formattedDate} ${suggestedTimeStart.slice(0, 5)}-${suggestedTimeEnd.slice(0, 5)} (${suggestionReason})`
+        : `${profile?.full_name} sugeriu nova data: ${formattedDate} ${suggestedTimeStart.slice(0, 5)}-${suggestedTimeEnd.slice(0, 5)}`;
+
       await supabase.from("delivery_timeline").insert({
         delivery_id: delivery.id,
-        action: "PROPOSED_DATE",
-        description: `${profile?.full_name} sugeriu uma nova data`,
+        action: "PROPOSED_NEW_DATE",
+        description,
         user_id: profile?.id,
+        old_data: oldData,
+        new_data: newData,
       });
 
-      toast({ title: "Nova data sugerida!" });
+      // Criar notificações para outra empresa
+      const otherCompanyId =
+        isBuyer ? delivery.seller_company_id : delivery.buyer_company_id;
+
+      const { data: otherUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("company_id", otherCompanyId);
+
+      if (otherUsers && otherUsers.length > 0) {
+        const notifications = otherUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "BALL_WITH_YOU",
+          title: "Nova data proposta",
+          message: `${profile?.full_name} sugeriu ${formattedDate} ${suggestedTimeStart.slice(0, 5)}-${suggestedTimeEnd.slice(0, 5)}`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+
+      toast({ title: "Nova data sugerida com sucesso!" });
       setShowSuggestModal(false);
+      setSuggestedDate(undefined);
+      setSuggestedTimeStart("");
+      setSuggestedTimeEnd("");
+      setSuggestionReason("");
       onUpdate();
     } catch (error) {
       console.error("Error suggesting date:", error);
@@ -126,13 +205,16 @@ export const DeliveryActions = ({
 
   const cancelDelivery = async () => {
     if (!cancellationReason.trim()) {
-      toast({
-        title: "Digite o motivo do cancelamento",
-        variant: "destructive",
-      });
+      setValidationError("O motivo do cancelamento é obrigatório");
       return;
     }
 
+    if (cancellationReason.trim().length < 10) {
+      setValidationError("Por favor, descreva melhor o motivo (mínimo 10 caracteres)");
+      return;
+    }
+
+    setValidationError("");
     setLoading(true);
     try {
       const { error } = await supabase
@@ -140,7 +222,7 @@ export const DeliveryActions = ({
         .update({
           status: "CANCELADA",
           ball_with: null,
-          cancellation_reason: cancellationReason,
+          cancellation_reason: cancellationReason.trim(),
           cancelled_at: new Date().toISOString(),
         })
         .eq("id", delivery.id);
@@ -150,12 +232,37 @@ export const DeliveryActions = ({
       await supabase.from("delivery_timeline").insert({
         delivery_id: delivery.id,
         action: "CANCELLED",
-        description: `${profile?.full_name} cancelou a entrega`,
+        description: `${profile?.full_name} cancelou a entrega: ${cancellationReason.trim()}`,
         user_id: profile?.id,
       });
 
-      toast({ title: "Entrega cancelada" });
+      // Criar notificações para outra empresa
+      const otherCompanyId =
+        isBuyer ? delivery.seller_company_id : delivery.buyer_company_id;
+
+      const { data: otherUsers } = await supabase
+        .from("users")
+        .select("id")
+        .eq("company_id", otherCompanyId);
+
+      if (otherUsers && otherUsers.length > 0) {
+        const notifications = otherUsers.map((user) => ({
+          user_id: user.id,
+          delivery_id: delivery.id,
+          type: "DELIVERY_CANCELLED",
+          title: "Entrega cancelada",
+          message: `${profile?.full_name} cancelou a entrega NF ${delivery.nf_number}`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+
+      toast({ 
+        title: "Entrega cancelada",
+        description: "A outra parte foi notificada sobre o cancelamento"
+      });
       setShowCancelModal(false);
+      setCancellationReason("");
       onUpdate();
     } catch (error) {
       console.error("Error cancelling delivery:", error);
@@ -264,30 +371,57 @@ export const DeliveryActions = ({
         </div>
 
         <Dialog open={showSuggestModal} onOpenChange={setShowSuggestModal}>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Sugerir Nova Data</DialogTitle>
+              <DialogTitle>Sugerir Nova Data/Horário</DialogTitle>
               <DialogDescription>
                 Sugira uma nova data e horário para a entrega
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {validationError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{validationError}</AlertDescription>
+                </Alert>
+              )}
               <div>
-                <Label>Data</Label>
-                <Calendar
-                  mode="single"
-                  selected={suggestedDate}
-                  onSelect={setSuggestedDate}
-                  locale={ptBR}
-                  disabled={(date) =>
-                    date < new Date(new Date().setHours(0, 0, 0, 0))
-                  }
-                  className="rounded-md border"
-                />
+                <Label className="required">Data *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !suggestedDate && "text-muted-foreground"
+                      )}
+                    >
+                      {suggestedDate ? (
+                        format(suggestedDate, "PPP", { locale: ptBR })
+                      ) : (
+                        <span>Selecione uma data</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={suggestedDate}
+                      onSelect={setSuggestedDate}
+                      locale={ptBR}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      className={cn("pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Horário Início</Label>
+                  <Label className="required">Horário Início *</Label>
                   <Input
                     type="time"
                     value={suggestedTimeStart}
@@ -295,7 +429,7 @@ export const DeliveryActions = ({
                   />
                 </div>
                 <div>
-                  <Label>Horário Fim</Label>
+                  <Label className="required">Horário Fim *</Label>
                   <Input
                     type="time"
                     value={suggestedTimeEnd}
@@ -303,16 +437,32 @@ export const DeliveryActions = ({
                   />
                 </div>
               </div>
+              <div>
+                <Label>Motivo/Observação</Label>
+                <Textarea
+                  value={suggestionReason}
+                  onChange={(e) => setSuggestionReason(e.target.value)}
+                  placeholder="Explique o motivo da mudança (recomendado)..."
+                  rows={3}
+                  maxLength={500}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {suggestionReason.length}/500 caracteres
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setShowSuggestModal(false)}
+                onClick={() => {
+                  setShowSuggestModal(false);
+                  setValidationError("");
+                }}
               >
                 Cancelar
               </Button>
               <Button onClick={suggestNewDate} disabled={loading}>
-                Sugerir
+                {loading ? "Enviando..." : "Enviar Proposta"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -323,28 +473,53 @@ export const DeliveryActions = ({
             <DialogHeader>
               <DialogTitle>Cancelar Entrega</DialogTitle>
               <DialogDescription>
-                Digite o motivo do cancelamento
+                Esta ação não pode ser desfeita
               </DialogDescription>
             </DialogHeader>
-            <Textarea
-              value={cancellationReason}
-              onChange={(e) => setCancellationReason(e.target.value)}
-              placeholder="Motivo do cancelamento..."
-              rows={4}
-            />
+            <div className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Tem certeza?</strong> Esta ação não pode ser desfeita. A
+                  outra parte será notificada sobre o cancelamento.
+                </AlertDescription>
+              </Alert>
+              {validationError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{validationError}</AlertDescription>
+                </Alert>
+              )}
+              <div>
+                <Label className="required">Motivo do cancelamento *</Label>
+                <Textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Descreva o motivo do cancelamento..."
+                  rows={4}
+                  maxLength={1000}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {cancellationReason.length}/1000 caracteres (mínimo 10)
+                </p>
+              </div>
+            </div>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setValidationError("");
+                }}
               >
-                Voltar
+                Não, voltar
               </Button>
               <Button
                 variant="destructive"
                 onClick={cancelDelivery}
                 disabled={loading}
               >
-                Confirmar Cancelamento
+                {loading ? "Cancelando..." : "Sim, cancelar"}
               </Button>
             </DialogFooter>
           </DialogContent>
