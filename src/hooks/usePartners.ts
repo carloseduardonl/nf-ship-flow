@@ -9,6 +9,7 @@ export interface PartnerCompany {
   email: string;
   phone: string | null;
   address: string | null;
+  type: string;
   deliveryCount?: number;
 }
 
@@ -16,6 +17,7 @@ export const usePartners = () => {
   const { profile } = useAuth();
   const [partners, setPartners] = useState<PartnerCompany[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchPartners = async () => {
     if (!profile?.company_id) return;
@@ -129,8 +131,14 @@ export const usePartners = () => {
   };
 
   return {
-    partners,
+    partners: partners.filter(
+      (partner) =>
+        partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        partner.cnpj.includes(searchTerm)
+    ),
     loading,
+    searchTerm,
+    setSearchTerm,
     addPartner,
     refetch: fetchPartners,
   };
