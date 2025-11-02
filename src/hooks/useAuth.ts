@@ -9,7 +9,15 @@ interface UserProfile {
   email: string;
   role: string;
   company_id: string;
-  avatar_url?: string;
+  avatar_url?: string | null;
+  phone?: string | null;
+  notification_preferences?: {
+    email_ball_with_me: boolean;
+    email_delivery_confirmed: boolean;
+    email_message_received: boolean;
+    email_daily_summary: boolean;
+    push_notifications: boolean;
+  };
   company?: {
     id: string;
     name: string;
@@ -70,6 +78,8 @@ export const useAuth = () => {
           role,
           company_id,
           avatar_url,
+          phone,
+          notification_preferences,
           company:companies(id, name, type)
         `
         )
