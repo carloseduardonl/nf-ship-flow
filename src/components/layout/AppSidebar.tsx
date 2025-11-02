@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useDeliveries } from "@/hooks/useDeliveries";
 
 interface AppSidebarProps {
   userRole?: string;
@@ -33,13 +34,19 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
   const location = useLocation();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+  const { yourTurnDeliveries } = useDeliveries();
 
   const isActive = (path: string) => currentPath === path;
 
   const mainItems = [
     { title: "Minhas Entregas", url: "/dashboard", icon: LayoutDashboard },
     { title: "Nova Entrega", url: "/entregas/nova", icon: Plus },
-    { title: "Sua Vez", url: "/entregas/sua-vez", icon: Clock, badge: 3 },
+    { 
+      title: "Sua Vez", 
+      url: "/entregas/sua-vez", 
+      icon: Clock, 
+      badge: yourTurnDeliveries.length 
+    },
     { title: "Confirmadas", url: "/entregas/confirmadas", icon: CheckCircle },
     { title: "Em Trânsito", url: "/entregas/em-transito", icon: Truck },
     { title: "Concluídas", url: "/entregas/concluidas", icon: CheckCheck },
@@ -74,7 +81,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                     >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
-                      {!collapsed && item.badge && (
+                      {!collapsed && item.badge !== undefined && item.badge > 0 && (
                         <Badge
                           variant="destructive"
                           className="ml-auto h-5 w-5 flex items-center justify-center p-0 text-xs"
