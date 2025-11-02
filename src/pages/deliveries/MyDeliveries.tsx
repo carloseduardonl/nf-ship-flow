@@ -48,10 +48,10 @@ const MyDeliveries = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Minhas Entregas</h1>
-        <Button onClick={() => navigate("/entregas/nova")}>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold">Minhas Entregas</h1>
+        <Button onClick={() => navigate("/entregas/nova")} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nova Entrega
         </Button>
@@ -113,7 +113,7 @@ const MyDeliveries = () => {
 
       {hasMore && !loading && (
         <div className="flex justify-center pt-4">
-          <Button variant="outline" onClick={loadMore}>
+          <Button variant="outline" onClick={loadMore} className="w-full sm:w-auto">
             <ChevronsDown className="mr-2 h-4 w-4" />
             Carregar Mais
           </Button>

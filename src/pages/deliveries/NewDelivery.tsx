@@ -187,18 +187,18 @@ function NewDeliveryContent() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-4 md:space-y-6">
       <FormStepper currentStep={currentStep} totalSteps={3} />
 
       {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Nova Entrega - Passo 1 de 3</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Nova Entrega - Passo 1 de 3</CardTitle>
             <CardDescription>Dados da Nota Fiscal</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+            <div className="grid gap-4 md:gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="nfNumber">
                   Número da NF <span className="text-destructive">*</span>
@@ -225,9 +225,9 @@ function NewDeliveryContent() {
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 md:gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>
+                <Label className="text-sm md:text-base">
                   Data de Emissão <span className="text-destructive">*</span>
                 </Label>
                 <Popover>
@@ -235,7 +235,7 @@ function NewDeliveryContent() {
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal text-sm md:text-base",
                         !nfDate && "text-muted-foreground"
                       )}
                     >
@@ -297,15 +297,16 @@ function NewDeliveryContent() {
               )}
             </div>
 
-            <div className="flex gap-4 justify-end">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 md:gap-4 justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => navigate("/dashboard")}
+                className="w-full sm:w-auto"
               >
                 Cancelar
               </Button>
-              <Button type="submit">Próximo</Button>
+              <Button type="submit" className="w-full sm:w-auto">Próximo</Button>
             </div>
           </form>
         </CardContent>

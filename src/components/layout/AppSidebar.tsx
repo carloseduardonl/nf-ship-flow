@@ -66,8 +66,8 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
       : "hover:bg-accent";
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarContent>
+    <Sidebar collapsible="icon" className="border-r">
+      <SidebarContent className="pt-4">
         <SidebarGroup>
           <SidebarGroupLabel>Principal</SidebarGroupLabel>
           <SidebarGroupContent>

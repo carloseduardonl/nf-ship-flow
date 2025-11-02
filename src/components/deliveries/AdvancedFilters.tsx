@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,12 +15,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
-import { Search, X, Calendar as CalendarIcon, Download } from "lucide-react";
+import { Search, X, Calendar as CalendarIcon, Download, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { usePartners } from "@/hooks/usePartners";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface DeliveryFilters {
   search: string;
@@ -45,6 +55,8 @@ export function AdvancedFilters({
   const [searchParams, setSearchParams] = useSearchParams();
   const { partners } = usePartners();
   const [localSearch, setLocalSearch] = useState(filters.search);
+  const isMobile = useIsMobile();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -143,6 +155,158 @@ export function AdvancedFilters({
     },
   ];
 
+  const FiltersContent = () => (
+    <>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={filters.status}
+            onValueChange={(value) => handleFilterChange("status", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="your-turn">Aguardando resposta</SelectItem>
+              <SelectItem value="CONFIRMADA">Confirmadas</SelectItem>
+              <SelectItem value="EM_TRANSITO">Em Trânsito</SelectItem>
+              <SelectItem value="ENTREGUE">Entregues</SelectItem>
+              <SelectItem value="CANCELADA">Canceladas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Empresa</Label>
+          <Select
+            value={filters.companyId}
+            onValueChange={(value) => handleFilterChange("companyId", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Todas as empresas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todas as empresas</SelectItem>
+              {partners.map((partner) => (
+                <SelectItem key={partner.id} value={partner.id}>
+                  {partner.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Período</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !filters.dateFrom && !filters.dateTo && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {filters.dateFrom && filters.dateTo
+                  ? `${format(filters.dateFrom, "dd/MM")} - ${format(
+                      filters.dateTo,
+                      "dd/MM"
+                    )}`
+                  : "Selecione"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="space-y-4 p-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Atalhos</p>
+                  <div className="flex flex-col gap-1">
+                    {quickDateFilters.map((filter) => (
+                      <Button
+                        key={filter.label}
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => {
+                          const dates = filter.getValue();
+                          handleFilterChange("dateFrom", dates.from);
+                          handleFilterChange("dateTo", dates.to);
+                        }}
+                      >
+                        {filter.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <Button
+          variant="ghost"
+          className="flex-1"
+          onClick={clearFilters}
+        >
+          <X className="mr-2 h-4 w-4" />
+          Limpar
+        </Button>
+        {isMobile && (
+          <Button className="flex-1" onClick={() => setIsFilterOpen(false)}>
+            Aplicar
+          </Button>
+        )}
+      </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[85vh]">
+              <SheetHeader>
+                <SheetTitle>Filtros</SheetTitle>
+                <SheetDescription>
+                  Refine sua busca usando os filtros abaixo
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-6">
+                <FiltersContent />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <Button variant="outline" size="icon" onClick={onExport}>
+            <Download className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          {totalResults} {totalResults === 1 ? "resultado" : "resultados"}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -156,7 +320,6 @@ export function AdvancedFilters({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {/* Search Input */}
         <div className="relative lg:col-span-2">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -167,7 +330,6 @@ export function AdvancedFilters({
           />
         </div>
 
-        {/* Status Filter */}
         <Select
           value={filters.status}
           onValueChange={(value) => handleFilterChange("status", value)}
@@ -185,7 +347,6 @@ export function AdvancedFilters({
           </SelectContent>
         </Select>
 
-        {/* Company Filter */}
         <Select
           value={filters.companyId}
           onValueChange={(value) => handleFilterChange("companyId", value)}
@@ -203,7 +364,6 @@ export function AdvancedFilters({
           </SelectContent>
         </Select>
 
-        {/* Date Range Picker */}
         <Popover>
           <PopoverTrigger asChild>
             <Button

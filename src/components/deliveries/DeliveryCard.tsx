@@ -64,16 +64,16 @@ export function DeliveryCard({ delivery, showYourTurn }: DeliveryCardProps) {
 
   return (
     <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
+      <CardContent className="p-3 md:p-4">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-2 mb-3">
           <div className="flex gap-2 flex-wrap">
-            <Badge className={cn("text-white", statusColors[delivery.status])}>
+            <Badge className={cn("text-white text-xs", statusColors[delivery.status])}>
               {statusLabels[delivery.status]}
             </Badge>
             {isYourTurn && (
               <Badge
                 variant="destructive"
-                className="animate-pulse font-semibold"
+                className="animate-pulse font-semibold text-xs"
               >
                 É SUA VEZ
               </Badge>
@@ -83,28 +83,29 @@ export function DeliveryCard({ delivery, showYourTurn }: DeliveryCardProps) {
             variant="ghost"
             size="sm"
             onClick={() => navigate(`/entregas/${delivery.id}`)}
+            className="w-full sm:w-auto"
           >
             Ver Detalhes
           </Button>
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex-1">
+              <p className="font-semibold text-base md:text-lg">
                 NF {delivery.nf_number}
                 {delivery.nf_series && ` - Série ${delivery.nf_series}`}
               </p>
-              <p className="text-sm text-muted-foreground">{otherCompany?.name}</p>
+              <p className="text-xs md:text-sm text-muted-foreground">{otherCompany?.name}</p>
             </div>
-            <div className="text-right">
-              <p className="font-bold text-lg">{formatCurrency(delivery.nf_value)}</p>
+            <div className="text-left sm:text-right">
+              <p className="font-bold text-base md:text-lg">{formatCurrency(delivery.nf_value)}</p>
             </div>
           </div>
 
           {displayDate && (
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-xs md:text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>
                 {formatDate(displayDate)}
                 {displayTimeStart && displayTimeEnd && (
@@ -116,8 +117,8 @@ export function DeliveryCard({ delivery, showYourTurn }: DeliveryCardProps) {
             </div>
           )}
 
-          <div className="flex items-start gap-2 text-sm">
-            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+          <div className="flex items-start gap-2 text-xs md:text-sm">
+            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <span className="text-muted-foreground">
               {delivery.delivery_city} - {delivery.delivery_state}
             </span>

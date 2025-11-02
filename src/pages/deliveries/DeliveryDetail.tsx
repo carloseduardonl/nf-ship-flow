@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Loader2, FileText, ExternalLink } from "lucide-react";
 import { Delivery } from "@/hooks/useDeliveries";
 import { format } from "date-fns";
@@ -12,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { DeliveryTimeline } from "@/components/deliveries/DeliveryTimeline";
 import { DeliveryChat } from "@/components/deliveries/DeliveryChat";
 import { DeliveryActions } from "@/components/deliveries/DeliveryActions";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DeliveryDetail = () => {
   const { id } = useParams();
@@ -19,6 +21,7 @@ const DeliveryDetail = () => {
   const { profile } = useAuth();
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   const fetchDelivery = async () => {
     if (!id || !profile?.company_id) return;
@@ -117,6 +120,190 @@ const DeliveryDetail = () => {
     (delivery.ball_with === "VENDEDOR" &&
       profile?.company_id === delivery.seller_company_id);
 
+  const InfoContent = () => (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg">Nota Fiscal</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div>
+            <p className="text-sm text-muted-foreground">Número</p>
+            <p className="font-medium">{delivery.nf_number}</p>
+          </div>
+          {delivery.nf_series && (
+            <div>
+              <p className="text-sm text-muted-foreground">Série</p>
+              <p className="font-medium">{delivery.nf_series}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-sm text-muted-foreground">Data de Emissão</p>
+            <p className="font-medium">
+              {format(new Date(delivery.nf_date), "PPP", { locale: ptBR })}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Valor</p>
+            <p className="font-medium text-lg">
+              {new Intl.NumberFormat("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              }).format(delivery.nf_value)}
+            </p>
+          </div>
+          {delivery.nf_file_url && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => window.open(delivery.nf_file_url!, "_blank")}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Ver PDF
+              <ExternalLink className="ml-2 h-3 w-3" />
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg">Entrega</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Vendedor</p>
+            <p className="font-medium">{delivery.seller_company?.name}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Comprador</p>
+            <p className="font-medium">{delivery.buyer_company?.name}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Endereço</p>
+            <p className="text-sm">{delivery.delivery_address}</p>
+            <p className="text-sm">
+              {delivery.delivery_city} - {delivery.delivery_state}
+            </p>
+          </div>
+          {delivery.proposed_date && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">
+                Data/Horário Proposto
+              </p>
+              <p className="font-medium">
+                {format(new Date(delivery.proposed_date), "PPP", {
+                  locale: ptBR,
+                })}
+              </p>
+              {delivery.proposed_time_start && delivery.proposed_time_end && (
+                <p className="text-sm">
+                  {delivery.proposed_time_start.slice(0, 5)} às{" "}
+                  {delivery.proposed_time_end.slice(0, 5)}
+                </p>
+              )}
+            </div>
+          )}
+          {delivery.confirmed_date && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">
+                Data/Horário Confirmado
+              </p>
+              <p className="font-medium">
+                {format(new Date(delivery.confirmed_date), "PPP", {
+                  locale: ptBR,
+                })}
+              </p>
+              {delivery.confirmed_time_start &&
+                delivery.confirmed_time_end && (
+                  <p className="text-sm">
+                    {delivery.confirmed_time_start.slice(0, 5)} às{" "}
+                    {delivery.confirmed_time_end.slice(0, 5)}
+                  </p>
+                )}
+            </div>
+          )}
+          {delivery.notes && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">
+                Observações
+              </p>
+              <p className="text-sm">{delivery.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg">Status Atual</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Badge variant={statusInfo.variant} className="text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2">
+            {statusInfo.label}
+          </Badge>
+          <p className="text-sm text-muted-foreground">
+            {statusInfo.description}
+          </p>
+          {isMyTurn && (
+            <Badge
+              variant="destructive"
+              className="animate-pulse text-sm md:text-base px-3 md:px-4 py-1.5 md:py-2"
+            >
+              🔴 É SUA VEZ
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="space-y-4 pb-20">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+        </div>
+
+        <Tabs defaultValue="info" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="info">Info</TabsTrigger>
+            <TabsTrigger value="timeline">Histórico</TabsTrigger>
+            <TabsTrigger value="chat">Chat</TabsTrigger>
+          </TabsList>
+          <TabsContent value="info" className="mt-4">
+            <InfoContent />
+          </TabsContent>
+          <TabsContent value="timeline" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <DeliveryTimeline deliveryId={delivery.id} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="chat" className="mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <DeliveryChat
+                  deliveryId={delivery.id}
+                  sellerCompanyId={delivery.seller_company_id}
+                  buyerCompanyId={delivery.buyer_company_id}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t">
+          <DeliveryActions delivery={delivery} onUpdate={fetchDelivery} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-8">
       <div className="flex items-center justify-between">
@@ -127,151 +314,14 @@ const DeliveryDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* COLUNA 1 - INFORMAÇÕES */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Nota Fiscal</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div>
-                <p className="text-sm text-muted-foreground">Número</p>
-                <p className="font-medium">{delivery.nf_number}</p>
-              </div>
-              {delivery.nf_series && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Série</p>
-                  <p className="font-medium">{delivery.nf_series}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-sm text-muted-foreground">Data de Emissão</p>
-                <p className="font-medium">
-                  {format(new Date(delivery.nf_date), "PPP", { locale: ptBR })}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Valor</p>
-                <p className="font-medium text-lg">
-                  {new Intl.NumberFormat("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  }).format(delivery.nf_value)}
-                </p>
-              </div>
-              {delivery.nf_file_url && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => window.open(delivery.nf_file_url!, "_blank")}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Ver PDF
-                  <ExternalLink className="ml-2 h-3 w-3" />
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+        <InfoContent />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Entrega</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Vendedor</p>
-                <p className="font-medium">{delivery.seller_company?.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Comprador</p>
-                <p className="font-medium">{delivery.buyer_company?.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Endereço</p>
-                <p className="text-sm">{delivery.delivery_address}</p>
-                <p className="text-sm">
-                  {delivery.delivery_city} - {delivery.delivery_state}
-                </p>
-              </div>
-              {delivery.proposed_date && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Data/Horário Proposto
-                  </p>
-                  <p className="font-medium">
-                    {format(new Date(delivery.proposed_date), "PPP", {
-                      locale: ptBR,
-                    })}
-                  </p>
-                  {delivery.proposed_time_start && delivery.proposed_time_end && (
-                    <p className="text-sm">
-                      {delivery.proposed_time_start.slice(0, 5)} às{" "}
-                      {delivery.proposed_time_end.slice(0, 5)}
-                    </p>
-                  )}
-                </div>
-              )}
-              {delivery.confirmed_date && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Data/Horário Confirmado
-                  </p>
-                  <p className="font-medium">
-                    {format(new Date(delivery.confirmed_date), "PPP", {
-                      locale: ptBR,
-                    })}
-                  </p>
-                  {delivery.confirmed_time_start &&
-                    delivery.confirmed_time_end && (
-                      <p className="text-sm">
-                        {delivery.confirmed_time_start.slice(0, 5)} às{" "}
-                        {delivery.confirmed_time_end.slice(0, 5)}
-                      </p>
-                    )}
-                </div>
-              )}
-              {delivery.notes && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Observações
-                  </p>
-                  <p className="text-sm">{delivery.notes}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Status Atual</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Badge variant={statusInfo.variant} className="text-base px-4 py-2">
-                {statusInfo.label}
-              </Badge>
-              <p className="text-sm text-muted-foreground">
-                {statusInfo.description}
-              </p>
-              {isMyTurn && (
-                <Badge
-                  variant="destructive"
-                  className="animate-pulse text-base px-4 py-2"
-                >
-                  🔴 É SUA VEZ
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* COLUNA 2 - TIMELINE */}
         <Card className="lg:col-span-1">
           <CardContent className="pt-6">
             <DeliveryTimeline deliveryId={delivery.id} />
           </CardContent>
         </Card>
 
-        {/* COLUNA 3 - CHAT */}
         <Card className="lg:col-span-1">
           <CardContent className="pt-6 h-full">
             <DeliveryChat
@@ -283,7 +333,6 @@ const DeliveryDetail = () => {
         </Card>
       </div>
 
-      {/* AÇÕES DINÂMICAS */}
       <DeliveryActions delivery={delivery} onUpdate={fetchDelivery} />
     </div>
   );

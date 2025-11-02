@@ -44,24 +44,24 @@ export function DeliverySection({
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full justify-between p-4 h-auto hover:bg-accent"
+            className="w-full justify-between p-3 md:p-4 h-auto hover:bg-accent"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{emoji}</span>
-              <span className="font-semibold text-lg">{title}</span>
-              <Badge variant="secondary">{count}</Badge>
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="text-xl md:text-2xl">{emoji}</span>
+              <span className="font-semibold text-base md:text-lg">{title}</span>
+              <Badge variant="secondary" className="text-xs md:text-sm">{count}</Badge>
             </div>
             {isOpen ? (
-              <ChevronDown className="h-5 w-5" />
+              <ChevronDown className="h-4 w-4 md:h-5 md:w-5" />
             ) : (
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
             )}
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="p-4 pt-0 space-y-3">
+          <div className="p-3 md:p-4 pt-0 space-y-2 md:space-y-3">
             {displayDeliveries.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
+              <p className="text-center text-sm md:text-base text-muted-foreground py-6 md:py-8">
                 Nenhuma entrega nesta categoria
               </p>
             ) : (
@@ -76,7 +76,7 @@ export function DeliverySection({
                 {showViewAll && !showAll && allDeliveries && allDeliveries.length > deliveries.length && (
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="w-full text-sm md:text-base"
                     onClick={() => setShowAll(true)}
                   >
                     Ver todas ({allDeliveries.length})
@@ -85,7 +85,7 @@ export function DeliverySection({
                 {showAll && (
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="w-full text-sm md:text-base"
                     onClick={() => setShowAll(false)}
                   >
                     Mostrar menos

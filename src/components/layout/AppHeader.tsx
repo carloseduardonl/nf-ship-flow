@@ -31,27 +31,27 @@ export function AppHeader({ userName, companyName, onSignOut }: AppHeaderProps) 
     : "U";
 
   return (
-    <header className="sticky top-0 z-50 h-16 border-b bg-background shadow-sm">
-      <div className="flex h-full items-center px-4 gap-4">
+    <header className="sticky top-0 z-50 h-14 md:h-16 border-b bg-background shadow-sm">
+      <div className="flex h-full items-center px-3 md:px-4 gap-2 md:gap-4">
         <SidebarTrigger className="h-8 w-8" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1 justify-center md:justify-start">
           <div className="bg-primary rounded-full p-1.5">
-            <Package className="h-5 w-5 text-primary-foreground" />
+            <Package className="h-4 w-4 md:h-5 md:w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-primary hidden sm:inline">
+          <span className="text-base md:text-xl font-bold text-primary">
             NF Scheduler
           </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <NotificationsDropdown />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-secondary text-secondary-foreground">
+              <Button variant="ghost" className="relative h-8 w-8 md:h-10 md:w-10 rounded-full">
+                <Avatar className="h-8 w-8 md:h-10 md:w-10">
+                  <AvatarFallback className="bg-secondary text-secondary-foreground text-xs md:text-sm">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
