@@ -348,7 +348,6 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
-          notification_preferences: Json | null
           role: string
           updated_at: string
         }
@@ -360,7 +359,6 @@ export type Database = {
           full_name: string
           id: string
           is_active?: boolean
-          notification_preferences?: Json | null
           role?: string
           updated_at?: string
         }
@@ -372,7 +370,6 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
-          notification_preferences?: Json | null
           role?: string
           updated_at?: string
         }
