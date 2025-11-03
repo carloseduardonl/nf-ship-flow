@@ -412,6 +412,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      debug_auth_context: {
+        Args: never
+        Returns: {
+          current_user_id: string
+          has_admin_role: boolean
+          is_admin: boolean
+        }[]
+      }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
